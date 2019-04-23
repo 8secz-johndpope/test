@@ -1,6 +1,13 @@
 "use strict";
 
-let THREECAMERA;
+let THREECAMERA, track,
+    recButt = document.querySelector('#rec'),
+constraints = {
+    video: {
+        facingMode: "user"
+    },
+    audio: false
+};
 
 // callback : launched if a face is detected or lost. TODO : add a cool particle effect WoW !
 function detect_callback(faceIndex, isDetected) {
@@ -16,37 +23,39 @@ function init_threeScene(spec) {
     const threeStuffs = THREE.JeelizHelper.init(spec, detect_callback);
 
     // CREATE THE GLASSES AND ADD THEM
-    const r=JeelizThreeGlassesCreator({
+    const r = JeelizThreeGlassesCreator({
         envMapURL: "envMap.jpg",
-        frameMeshURL: "models3D/glassesFramesBranchesBent.json",
+        frameMeshURL: "models3D/untitled.json",
         lensesMeshURL: "models3D/glassesLenses.json",
         occluderURL: "models3D/face.json"
     });
 
     threeStuffs.faceObject.add(r.occluder);
     //r.occluder.rotation.set(-0.15,0,0);
-    window.re=r.occluder;
-    r.occluder.rotation.set(0.3,0,0);
-    r.occluder.position.set(0,0.1,-0.04);
+    window.re = r.occluder;
+    r.occluder.rotation.set(0.3, 0, 0);
+    r.occluder.position.set(0, 0.1, -0.04);
     r.occluder.scale.multiplyScalar(0.0084);
 
-    const threeGlasses=r.glasses;
+    const threeGlasses = r.glasses;
     //threeGlasses.rotation.set(-0.15,0,0); //X neg -> rotate branches down
-    threeGlasses.position.set(0,0.07,0.4);
+    threeGlasses.position.set(0, 0.07, 0.4);
     threeGlasses.scale.multiplyScalar(0.006);
     threeStuffs.faceObject.add(threeGlasses);
 
 
     //CREATE THE CAMERA
-    const aspecRatio=spec.canvasElement.width / spec.canvasElement.height;
-    THREECAMERA=new THREE.PerspectiveCamera(40, aspecRatio, 0.1, 100);
+    const aspecRatio = spec.canvasElement.width / spec.canvasElement.height;
+    THREECAMERA = new THREE.PerspectiveCamera(40, aspecRatio, 0.1, 100);
 } // end init_threeScene()
 
 //launched by body.onload() :
-function main(){
+void
+
+function main() {
     JeelizResizer.size_canvas({
         canvasId: 'jeeFaceFilterCanvas',
-        callback: function(isError, bestVideoSettings){
+        callback: function (isError, bestVideoSettings) {
             init_faceFilter(bestVideoSettings);
         }
     })
@@ -58,20 +67,49 @@ function init_faceFilter(videoSettings){
         canvasId: 'jeeFaceFilterCanvas',
         NNCpath: './dist/', // root of NNC.json file
         maxFacesDetected: 1,
-        callbackReady: function(errCode, spec){
-          if (errCode){
-            console.log('AN ERROR HAPPENS. ERR =', errCode);
-            return;
-          }
+        callbackReady: function (errCode, spec) {
+            if (errCode) {
+                console.log('AN ERROR HAPPENS. ERR =', errCode);
+                return;
+            }
 
-          console.log('INFO : JEEFACEFILTERAPI IS READY');
-          init_threeScene(spec);
+            console.log('INFO : JEEFACEFILTERAPI IS READY');
+            init_threeScene(spec);
         }, //end callbackReady()
 
         //called at each render iteration (drawing loop) :
-        callbackTrack: function(detectState){
-          THREE.JeelizHelper.render(detectState, THREECAMERA);
+        callbackTrack: function (detectState) {
+            THREE.JeelizHelper.render(detectState, THREECAMERA);
         } //end callbackTrack()
     }); //end JEEFACEFILTERAPI.init call
 } // end main()
 
+var video = document.querySelector('#source');
+let cam = null;
+    navigator.mediaDevices
+    .getUserMedia(constraints)
+    .then(camera => video.srcObject = camera)
+    .then(camera => cam = camera)
+    .catch(error => console.error(error));
+
+function stopRecordingCallback() {
+    video.src = video.srcObject = null;
+    video.src = URL.createObjectURL(recorder.getBlob());
+    recorder.camera.stop();
+    recorder.destroy();
+    recorder = null;
+}
+var recorder;
+document.getElementById('rec').onclick = function() {
+    this.disabled = true;
+        recorder = RecordRTC(cam, {
+            type: 'video'
+        });
+        recorder.startRecording();
+        recorder.camera = cam;
+};
+
+ document.getElementById('stop').onclick = function() {
+     this.disabled = true;
+     recorder.stopRecording(stopRecordingCallback);
+ };
