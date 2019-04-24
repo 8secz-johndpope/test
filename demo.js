@@ -1,14 +1,21 @@
 "use strict";
-
-let THREECAMERA, track,
-    recButt = document.querySelector('#rec'),
-constraints = {
-    video: {
-        facingMode: "user"
-    },
-    audio: false
-};
-
+console.clear()
+let THREECAMERA, recorder, video = document.getElementById("source"), camera = null,
+    constraints = {
+        video: {
+            facingMode: "user"
+        },
+        audio: false
+    };
+function init() {
+    navigator.mediaDevices
+        .getUserMedia(constraints)
+        .then(_camera => {
+            video.srcObject = _camera;
+            camera = _camera
+        })
+        .catch(error => console.error(error));
+}
 // callback : launched if a face is detected or lost. TODO : add a cool particle effect WoW !
 function detect_callback(faceIndex, isDetected) {
     if (isDetected) {
@@ -25,7 +32,7 @@ function init_threeScene(spec) {
     // CREATE THE GLASSES AND ADD THEM
     const r = JeelizThreeGlassesCreator({
         envMapURL: "envMap.jpg",
-        frameMeshURL: "models3D/untitled.json",
+        frameMeshURL: "models3D/glassesFramesBranchesBent.json",
         lensesMeshURL: "models3D/glassesLenses.json",
         occluderURL: "models3D/face.json"
     });
@@ -50,9 +57,7 @@ function init_threeScene(spec) {
 } // end init_threeScene()
 
 //launched by body.onload() :
-void
-
-function main() {
+function start() {
     JeelizResizer.size_canvas({
         canvasId: 'jeeFaceFilterCanvas',
         callback: function (isError, bestVideoSettings) {
@@ -61,10 +66,13 @@ function main() {
     })
 } //end main()
 
-function init_faceFilter(videoSettings){
+function init_faceFilter(videoSettings) {
     JEEFACEFILTERAPI.init({
         followZRot: true,
         canvasId: 'jeeFaceFilterCanvas',
+        videoSettings: {
+            videoElement: video,
+        },
         NNCpath: './dist/', // root of NNC.json file
         maxFacesDetected: 1,
         callbackReady: function (errCode, spec) {
@@ -84,13 +92,19 @@ function init_faceFilter(videoSettings){
     }); //end JEEFACEFILTERAPI.init call
 } // end main()
 
-var video = document.querySelector('#source');
-let cam = null;
-    navigator.mediaDevices
-    .getUserMedia(constraints)
-    .then(camera => video.srcObject = camera)
-    .then(camera => cam = camera)
-    .catch(error => console.error(error));
+document.getElementById('rec').onclick = function () {
+    this.disabled = true;
+    recorder = RecordRTC(camera, {
+        type: 'video'
+    });
+    recorder.startRecording();
+    recorder.camera = camera;
+};
+
+document.getElementById('stop').onclick = function () {
+    this.disabled = true;
+    recorder.stopRecording(stopRecordingCallback);
+};
 
 function stopRecordingCallback() {
     video.src = video.srcObject = null;
@@ -98,18 +112,16 @@ function stopRecordingCallback() {
     recorder.camera.stop();
     recorder.destroy();
     recorder = null;
+    main();
 }
-var recorder;
-document.getElementById('rec').onclick = function() {
-    this.disabled = true;
-        recorder = RecordRTC(cam, {
-            type: 'video'
-        });
-        recorder.startRecording();
-        recorder.camera = cam;
-};
 
- document.getElementById('stop').onclick = function() {
-     this.disabled = true;
-     recorder.stopRecording(stopRecordingCallback);
- };
+function main() { //entry poin
+    //video = document.getElementById("video")
+    console.log(video)
+    if (video['currentTime'] && video['videoWidth'] && video['videoHeight']) {
+        start();
+    } else {
+        setTimeout(main, 100);
+        video['play']();
+    }
+}
